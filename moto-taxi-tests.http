@@ -1,0 +1,105 @@
+# Thunder Client - Pruebas de Autenticación y Administración
+# Base URL: http://localhost:3000
+
+# ============================================
+# 1. REGISTRO DE USUARIO (rol: pasajero)
+# ============================================
+# Nota: El registro público solo permite roles "pasajero" o "conductor"
+POST http://localhost:3000/auth/register
+Content-Type: application/json
+
+{
+  "nombre": "Carlos Administrador",
+  "email": "admin@mototaxi.com",
+  "telefono": "+573001234567",
+  "password": "Admin123!",
+  "rol": "pasajero"
+}
+
+# ============================================
+# 2. INICIO DE SESIÓN
+# ============================================
+POST http://localhost:3000/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@mototaxi.com",
+  "password": "Admin123!"
+}
+
+# ============================================
+# 3. OBTENER PERFIL DEL USUARIO LOGUEADO
+# ============================================
+# Requiere token del paso anterior
+# Copia el token del response y pégalo en el header Authorization
+GET http://localhost:3000/auth/me
+Authorization: Bearer {{token}}
+
+# ============================================
+# 4. ACTUALIZAR PERFIL
+# ============================================
+PATCH http://localhost:3000/auth/profile
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "nombre": "Carlos Admin Actualizado",
+  "edad": 35
+}
+
+# ============================================
+# 5. VER PERFIL PÚBLICO
+# ============================================
+GET http://localhost:3000/auth/profile/00000000-0000-0000-0000-000000000000
+
+# ============================================
+# 6. CAMBIAR ROL A ADMIN (necesitas ser admin para esto)
+# ============================================
+# Primero necesitas tener un usuario con rol admin.
+# Si eres el primer admin, usa el script SQL en db-seed-admin.sql
+PATCH http://localhost:3000/admin/users/00000000-0000-0000-0000-000000000000/role
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "rol": "admin"
+}
+
+# ============================================
+# 7. CREAR USUARIO COMO ADMIN
+# ============================================
+POST http://localhost:3000/admin/users
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "nombre": "Nuevo Administrador",
+  "email": "nuevoadmin@mototaxi.com",
+  "telefono": "+573009876543",
+  "password": "NuevoAdmin123!",
+  "rol": "admin"
+}
+
+# ============================================
+# 8. OBTENER ESTADÍSTICAS (admin)
+# ============================================
+GET http://localhost:3000/admin/stats
+Authorization: Bearer {{adminToken}}
+
+# ============================================
+# 9. LISTAR TODOS LOS USUARIOS (admin)
+# ============================================
+GET http://localhost:3000/admin/users
+Authorization: Bearer {{adminToken}}
+
+# ============================================
+# 10. LISTAR VEHÍCULOS (admin)
+# ============================================
+GET http://localhost:3000/admin/vehicles
+Authorization: Bearer {{adminToken}}
+
+# ============================================
+# 11. LISTAR VIAJES (admin)
+# ============================================
+GET http://localhost:3000/admin/trips
+Authorization: Bearer {{adminToken}}
