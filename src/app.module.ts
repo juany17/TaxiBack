@@ -31,7 +31,8 @@ import { ReviewsModule } from './reviews/reviews.module';
         password: configService.get<string>('DB_PASSWORD'),
         database: configService.get<string>('DB_DATABASE'),
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        synchronize: true, // Solo para desarrollo! En produccion usar migraciones
+        synchronize: process.env.NODE_ENV !== 'production',
+        ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
       }),
     }),
     UsersModule,
