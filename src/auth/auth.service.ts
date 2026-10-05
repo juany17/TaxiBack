@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { UsersService } from '../users/users.service';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
@@ -7,6 +7,7 @@ import { ConfigService } from '@nestjs/config';
 import { UserEntity } from '../users/entities/user.entity';
 import { ProfileUpdateDto } from './profile-update.dto';
 import { MailerService } from './mailer.service';
+import { UserRole } from '../users/entities/user.entity';
 
 @Injectable()
 export class AuthService {
@@ -47,6 +48,16 @@ export class AuthService {
   }
 
   async updateProfile(userId: string, profileData: ProfileUpdateDto): Promise<UserEntity> {
+    if (profileData.mercadoPagoAlias !== undefined) {
+      const user = await this.usersService.findById(userId);
+      if (!user) {
+        throw new UnauthorizedException('Usuario no encontrado');
+      }
+      if (user.rol !== UserRole.CONDUCTOR) {
+        throw new ForbiddenException('Solo los conductores pueden configurar un alias de pago');
+      }
+    }
+
     const updatedUser = await this.usersService.update(userId, profileData);
     
     // Asignar badges automáticamente basado en las estadísticas
@@ -56,6 +67,18 @@ export class AuthService {
     await this.usersService.update(userId, { badges });
     
     return updatedUser;
+  }
+
+  async getOwnPaymentAlias(userId: string): Promise<{ mercadoPagoAlias: string | null }> {
+    const user = await this.usersService.findById(userId);
+    if (!user) {
+      throw new UnauthorizedException('Usuario no encontrado');
+    }
+    if (user.rol !== UserRole.CONDUCTOR) {
+      throw new ForbiddenException('Solo los conductores pueden configurar un alias de pago');
+    }
+
+    return { mercadoPagoAlias: user.mercadoPagoAlias ?? null };
   }
 
   private calculateBadges(user: UserEntity): string[] {

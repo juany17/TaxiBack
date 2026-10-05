@@ -1,7 +1,7 @@
 import { forwardRef, Inject, Injectable, NotFoundException, BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
-import { TripEntity, TripStatus } from './entities/trip.entity';
+import { TripEntity, TripPaymentMethod, TripPaymentStatus, TripStatus } from './entities/trip.entity';
 import { CreateTripDto } from './dto/create-trip.dto';
 import { UsersService } from '../users/users.service';
 import { TripsGateway } from './trips.gateway';
@@ -29,8 +29,20 @@ export class TripsService {
       throw new NotFoundException('Pasajero no encontrado');
     }
 
+    const paymentMethod = createTripDto.payment_method ?? TripPaymentMethod.EFECTIVO;
+    if (paymentMethod === TripPaymentMethod.EFECTIVO && createTripDto.cash_tendered != null && createTripDto.cash_tendered < FIXED_FARE) {
+      throw new BadRequestException('El efectivo indicado no puede ser menor que la tarifa del viaje');
+    }
+    if (paymentMethod === TripPaymentMethod.MERCADOPAGO && createTripDto.cash_tendered != null) {
+      throw new BadRequestException('El monto en efectivo solo corresponde a viajes pagados en efectivo');
+    }
+
     const trip = this.tripsRepository.create({
       ...createTripDto,
+      payment_method: paymentMethod,
+      cash_tendered: paymentMethod === TripPaymentMethod.EFECTIVO ? createTripDto.cash_tendered ?? null : null,
+      payment_status: TripPaymentStatus.PENDIENTE,
+      payment_issue: null,
       passenger_id: passengerId,
       fare: FIXED_FARE,
       status: TripStatus.PENDIENTE,
@@ -99,6 +111,8 @@ export class TripsService {
       throw new NotFoundException('No se pudo recuperar el viaje aceptado');
     }
 
+    this.attachDriverPaymentAlias(acceptedTrip, acceptedTrip.passenger_id);
+
     // Notificar en tiempo real al pasajero (y salas relevantes)
     this.tripsGateway.notifyTripAccepted(acceptedTrip);
 
@@ -134,6 +148,69 @@ export class TripsService {
     return savedTrip;
   }
 
+  async confirmPayment(tripId: string, driverId: string): Promise<TripEntity> {
+    const updatedTrip = await this.dataSource.transaction(async (manager) => {
+      const repository = manager.getRepository(TripEntity);
+      const trip = await repository.findOne({
+        where: { id: tripId },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!trip) throw new NotFoundException('Viaje no encontrado');
+      if (trip.driver_id !== driverId) {
+        throw new ForbiddenException('Solo el conductor asignado puede confirmar el pago');
+      }
+      if (trip.status !== TripStatus.FINALIZADO) {
+        throw new BadRequestException('El pago solo puede confirmarse cuando el viaje finalizó');
+      }
+      if (trip.payment_status !== TripPaymentStatus.PENDIENTE) {
+        throw new ConflictException('El pago ya fue confirmado o reportado');
+      }
+
+      trip.payment_status = TripPaymentStatus.PAGADO;
+      trip.payment_issue = null;
+      return repository.save(trip);
+    });
+
+    this.tripsGateway.notifyTripPaymentChanged(updatedTrip);
+    return updatedTrip;
+  }
+
+  async reportPaymentIssue(
+    tripId: string,
+    passengerId: string,
+    reason: string,
+  ): Promise<TripEntity> {
+    const updatedTrip = await this.dataSource.transaction(async (manager) => {
+      const repository = manager.getRepository(TripEntity);
+      const trip = await repository.findOne({
+        where: { id: tripId },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!trip) throw new NotFoundException('Viaje no encontrado');
+      if (trip.passenger_id !== passengerId) {
+        throw new ForbiddenException('Solo el pasajero puede reportar el pago');
+      }
+      if (trip.status !== TripStatus.FINALIZADO) {
+        throw new BadRequestException('El pago solo puede reportarse cuando el viaje finalizó');
+      }
+      if (trip.payment_status !== TripPaymentStatus.PENDIENTE) {
+        throw new ConflictException('El pago ya fue confirmado o reportado');
+      }
+
+      trip.payment_status = TripPaymentStatus.REPORTADO;
+      trip.payment_issue = reason;
+      trip.payment_reviewed_at = null;
+      trip.payment_reviewed_by = null;
+      trip.payment_review_action = null;
+      return repository.save(trip);
+    });
+
+    this.tripsGateway.notifyTripPaymentChanged(updatedTrip);
+    return updatedTrip;
+  }
+
   async findById(id: string): Promise<TripEntity | null> {
     return this.tripsRepository.findOne({
       where: { id },
@@ -160,15 +237,18 @@ export class TripsService {
       throw new ForbiddenException('No tienes permiso para ver este viaje');
     }
 
+    this.attachDriverPaymentAlias(trip, actor.id);
     return trip;
   }
 
   async findByPassenger(passengerId: string): Promise<TripEntity[]> {
-    return this.tripsRepository.find({
+    const trips = await this.tripsRepository.find({
       where: { passenger_id: passengerId },
       relations: { driver: true, vehicle: true },
       order: { createdAt: 'DESC' },
     });
+    trips.forEach((trip) => this.attachDriverPaymentAlias(trip, passengerId));
+    return trips;
   }
 
   async findByDriver(driverId: string): Promise<TripEntity[]> {
@@ -177,5 +257,14 @@ export class TripsService {
       relations: { passenger: true, vehicle: true },
       order: { createdAt: 'DESC' },
     });
+  }
+
+  private attachDriverPaymentAlias(trip: TripEntity, viewerId: string): void {
+    trip.driver_payment_alias =
+      (viewerId === trip.passenger_id || viewerId === trip.driver_id) &&
+      trip.payment_method === TripPaymentMethod.MERCADOPAGO &&
+      trip.status !== TripStatus.PENDIENTE
+        ? trip.driver?.mercadoPagoAlias ?? null
+        : null;
   }
 }

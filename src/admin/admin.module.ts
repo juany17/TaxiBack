@@ -7,12 +7,14 @@ import { VehicleEntity } from '../vehicles/entities/vehicle.entity';
 import { TripEntity } from '../trips/entities/trip.entity';
 import { UsersModule } from '../users/users.module';
 import { AuthModule } from '../auth/auth.module';
+import { TripsModule } from '../trips/trips.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([UserEntity, VehicleEntity, TripEntity]),
     UsersModule,
     AuthModule,
+    TripsModule,
   ],
   controllers: [AdminController],
   providers: [AdminService],

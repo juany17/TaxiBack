@@ -11,6 +11,7 @@ import { VehiclesModule } from './vehicles/vehicles.module';
 import { TripsModule } from './trips/trips.module';
 import { AdminModule } from './admin/admin.module';
 import { ReviewsModule } from './reviews/reviews.module';
+import { shouldSynchronizeDatabase } from './database.config';
 
 @Module({
   imports: [
@@ -31,7 +32,7 @@ import { ReviewsModule } from './reviews/reviews.module';
         password: configService.get<string>('DB_PASSWORD'),
         database: configService.get<string>('DB_DATABASE'),
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        synchronize: process.env.NODE_ENV !== 'production',
+        synchronize: shouldSynchronizeDatabase(configService.get<string>('NODE_ENV')),
         ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
       }),
     }),

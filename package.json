@@ -82,6 +82,7 @@
     },
     "moduleNameMapper": {
       "^@nestjs/jwt$": "<rootDir>/test-utils/jwt.mock.ts",
+      "^@nestjs/config$": "<rootDir>/test-utils/config.mock.ts",
       "^@nestjs/typeorm$": "<rootDir>/test-utils/typeorm.mock.ts",
       "^@nestjs/throttler$": "<rootDir>/test-utils/native.mock.ts",
       "^@nestjs/mapped-types$": "<rootDir>/test-utils/mapped-types.mock.ts",

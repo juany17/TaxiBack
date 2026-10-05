@@ -1,7 +1,17 @@
 import { Transform } from 'class-transformer';
-import { IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID, Max, MaxLength, Min } from 'class-validator';
+import { IsIn, IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID, Max, MaxLength, Min } from 'class-validator';
+import { TripPaymentMethod } from '../entities/trip.entity';
 
 export class CreateTripDto {
+  @IsOptional()
+  @IsIn(Object.values(TripPaymentMethod))
+  payment_method?: TripPaymentMethod;
+
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  cash_tendered?: number;
+
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
   @IsNotEmpty({ message: 'La dirección de origen es obligatoria' })

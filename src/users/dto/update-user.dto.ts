@@ -57,6 +57,12 @@ export class UpdateUserDto {
   @MaxLength(500, { message: 'La descripción no puede exceder 500 caracteres' })
   descripcion?: string;
 
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsOptional()
+  @IsString()
+  @MaxLength(100, { message: 'El alias de Mercado Pago no puede exceder 100 caracteres' })
+  mercadoPagoAlias?: string;
+
   // Información Profesional
   @IsOptional()
   @IsInt()
@@ -166,4 +172,3 @@ export class UpdateUserDto {
   @IsString({ each: true })
   badges?: string[];
 }
-

@@ -15,6 +15,7 @@ import { AuthGuard, AuthenticatedUser } from '../auth/guards/auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../users/entities/user.entity';
+import { ReportPaymentIssueDto } from './dto/report-payment-issue.dto';
 
 type AuthRequest = Request & { user: AuthenticatedUser };
 
@@ -67,5 +68,23 @@ export class TripsController {
   @Roles(UserRole.CONDUCTOR)
   async complete(@Req() req: AuthRequest, @Param('id', new ParseUUIDPipe()) id: string) {
     return this.tripsService.complete(id, req.user.id);
+  }
+
+  @Post(':id/payment/confirm')
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.CONDUCTOR)
+  async confirmPayment(@Req() req: AuthRequest, @Param('id', new ParseUUIDPipe()) id: string) {
+    return this.tripsService.confirmPayment(id, req.user.id);
+  }
+
+  @Post(':id/payment/report')
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.PASAJERO)
+  async reportPaymentIssue(
+    @Req() req: AuthRequest,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: ReportPaymentIssueDto,
+  ) {
+    return this.tripsService.reportPaymentIssue(id, req.user.id, dto.reason);
   }
 }

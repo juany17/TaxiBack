@@ -38,6 +38,10 @@ export class UserEntity {
   @Column({ nullable: true })
   descripcion?: string;
 
+  @Exclude()
+  @Column({ type: 'varchar', nullable: true, length: 100 })
+  mercadoPagoAlias?: string | null;
+
   // Información Profesional
   @Column({ nullable: true, type: 'int' })
   anosExperiencia?: number;

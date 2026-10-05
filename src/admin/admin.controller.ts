@@ -7,6 +7,7 @@ import {
   Body,
   UseGuards,
   ParseUUIDPipe,
+  Req,
 } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { AuthGuard } from '../auth/guards/auth.guard';
@@ -15,6 +16,9 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../users/entities/user.entity';
 import { ChangeRoleDto } from './dto/change-role.dto';
 import { CreateUserDto } from '../users/dto/create-user.dto';
+import { ResolvePaymentReportDto } from './dto/resolve-payment-report.dto';
+import { Request } from 'express';
+import { AuthenticatedUser } from '../auth/guards/auth.guard';
 
 @Controller('admin')
 @UseGuards(AuthGuard, RolesGuard)
@@ -53,5 +57,19 @@ export class AdminController {
   @Get('trips')
   async getAllTrips() {
     return this.adminService.getAllTrips();
+  }
+
+  @Get('payments/reported')
+  async getReportedPayments() {
+    return this.adminService.getReportedPayments();
+  }
+
+  @Patch('payments/:id/report')
+  async resolvePaymentReport(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: ResolvePaymentReportDto,
+    @Req() req: Request & { user: AuthenticatedUser },
+  ) {
+    return this.adminService.resolveReportedPayment(id, req.user.id, dto.action);
   }
 }

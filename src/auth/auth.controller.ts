@@ -36,6 +36,13 @@ export class AuthController {
   }
 
   @SkipThrottle()
+  @Get('payment-alias')
+  @UseGuards(AuthGuard)
+  getOwnPaymentAlias(@Req() req: Request & { user: AuthenticatedUser }) {
+    return this.authService.getOwnPaymentAlias(req.user.id);
+  }
+
+  @SkipThrottle()
   @Patch('profile')
   @UseGuards(AuthGuard)
   updateProfile(@Req() req: Request & { user: AuthenticatedUser }, @Body() profileData: ProfileUpdateDto) {

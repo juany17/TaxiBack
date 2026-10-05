@@ -24,3 +24,30 @@ describe('TripsGateway dependency injection', () => {
     expect(module.get(TripsService)).toBeDefined();
   });
 });
+
+describe('TripsGateway payment alias privacy', () => {
+  it('sends a driver payment alias only to the authorized trip room', () => {
+    const roomEmit = jest.fn();
+    const globalEmit = jest.fn();
+    const gateway = new TripsGateway({} as never, {} as never);
+    gateway.server = {
+      to: jest.fn(() => ({ emit: roomEmit })),
+      emit: globalEmit,
+    } as never;
+    const trip = {
+      id: 'trip-1',
+      driver_payment_alias: 'driver.alias.mp',
+      driver: {
+        id: 'driver-1',
+        mercadoPagoAlias: 'driver.alias.mp',
+      },
+    };
+
+    gateway.notifyTripAccepted(trip as never);
+
+    expect(roomEmit).toHaveBeenCalledWith('tripStatusChanged', trip);
+    const globalTrip = globalEmit.mock.calls[0][1];
+    expect(globalTrip.driver_payment_alias).toBeUndefined();
+    expect(globalTrip.driver.mercadoPagoAlias).toBeUndefined();
+  });
+});

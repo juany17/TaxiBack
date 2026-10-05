@@ -4,6 +4,8 @@ import { UsersService } from '../users/users.service';
 import { JwtService } from '@nestjs/jwt';
 import { UnauthorizedException } from '@nestjs/common';
 import { UserRole } from '../users/entities/user.entity';
+import { ConfigService } from '@nestjs/config';
+import { MailerService } from './mailer.service';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -11,7 +13,13 @@ describe('AuthService', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [AuthService, { provide: UsersService, useValue: usersService }, JwtService],
+      providers: [
+        AuthService,
+        { provide: UsersService, useValue: usersService },
+        JwtService,
+        { provide: MailerService, useValue: { sendPasswordReset: jest.fn() } },
+        { provide: ConfigService, useValue: { get: jest.fn() } },
+      ],
     }).compile();
 
     service = module.get<AuthService>(AuthService);

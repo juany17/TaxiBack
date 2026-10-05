@@ -1,11 +1,12 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { UserEntity, UserRole } from '../users/entities/user.entity';
 import { VehicleEntity } from '../vehicles/entities/vehicle.entity';
-import { TripEntity, TripStatus } from '../trips/entities/trip.entity';
+import { TripEntity, TripPaymentStatus, TripStatus } from '../trips/entities/trip.entity';
 import { UsersService } from '../users/users.service';
 import { CreateUserDto } from '../users/dto/create-user.dto';
+import { TripsGateway } from '../trips/trips.gateway';
 
 @Injectable()
 export class AdminService {
@@ -17,6 +18,8 @@ export class AdminService {
     @InjectRepository(TripEntity)
     private readonly tripsRepository: Repository<TripEntity>,
     private readonly usersService: UsersService,
+    private readonly dataSource: DataSource,
+    private readonly tripsGateway: TripsGateway,
   ) {}
 
   async getStats() {
@@ -93,5 +96,45 @@ export class AdminService {
       relations: { passenger: true, driver: true, vehicle: true },
       order: { createdAt: 'DESC' },
     });
+  }
+
+  async getReportedPayments(): Promise<TripEntity[]> {
+    return this.tripsRepository.find({
+      where: { payment_status: TripPaymentStatus.REPORTADO },
+      relations: { passenger: true, driver: true },
+      order: { finished_at: 'DESC' },
+    });
+  }
+
+  async resolveReportedPayment(
+    tripId: string,
+    adminId: string,
+    action: 'paid' | 'dismissed',
+  ): Promise<TripEntity> {
+    const trip = await this.dataSource.transaction(async (manager) => {
+      const repository = manager.getRepository(TripEntity);
+      const reportedTrip = await repository.findOne({
+        where: { id: tripId },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!reportedTrip) {
+        throw new NotFoundException('Viaje no encontrado');
+      }
+      if (reportedTrip.payment_status !== TripPaymentStatus.REPORTADO) {
+        throw new BadRequestException('El pago ya no tiene un reporte pendiente de revisión');
+      }
+
+      reportedTrip.payment_status =
+        action === 'paid' ? TripPaymentStatus.PAGADO : TripPaymentStatus.PENDIENTE;
+      reportedTrip.payment_reviewed_at = new Date();
+      reportedTrip.payment_reviewed_by = adminId;
+      reportedTrip.payment_review_action = action;
+
+      return repository.save(reportedTrip);
+    });
+
+    this.tripsGateway.notifyTripPaymentChanged(trip);
+    return trip;
   }
 }

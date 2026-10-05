@@ -15,6 +15,17 @@ export enum TripStatus {
   FINALIZADO = 'finalizado',
 }
 
+export enum TripPaymentMethod {
+  EFECTIVO = 'efectivo',
+  MERCADOPAGO = 'mercadopago',
+}
+
+export enum TripPaymentStatus {
+  PENDIENTE = 'pendiente',
+  PAGADO = 'pagado',
+  REPORTADO = 'reportado',
+}
+
 @Entity('trips')
 export class TripEntity {
   @PrimaryGeneratedColumn('uuid')
@@ -38,6 +49,29 @@ export class TripEntity {
 
   @Column({ type: 'decimal', precision: 10, scale: 2 })
   fare: number;
+
+  @Column({ type: 'varchar', default: TripPaymentMethod.EFECTIVO })
+  payment_method: TripPaymentMethod;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  cash_tendered: number | null;
+
+  @Column({ type: 'varchar', default: TripPaymentStatus.PENDIENTE })
+  payment_status: TripPaymentStatus;
+
+  @Column({ type: 'varchar', nullable: true })
+  payment_issue: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  payment_reviewed_at: Date | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  payment_reviewed_by: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  payment_review_action: 'paid' | 'dismissed' | null;
+
+  driver_payment_alias?: string | null;
 
 @Column({ type: 'decimal', precision: 10, scale: 6, nullable: true })
   origin_lat?: number;
